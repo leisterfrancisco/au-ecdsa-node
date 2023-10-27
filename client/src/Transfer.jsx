@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { utf8ToBytes } from "ethereum-cryptography/utils";
+
+import cryptoUtil from "./utils/crypto.util";
+
 import server from "./server";
 
-function Transfer({ address, setBalance }) {
+function Transfer({ address, setBalance, privateKey }) {
   const [sendAmount, setSendAmount] = useState("");
   const [recipient, setRecipient] = useState("");
 
@@ -10,13 +14,25 @@ function Transfer({ address, setBalance }) {
   async function transfer(evt) {
     evt.preventDefault();
 
+    if (!privateKey) {
+      alert("Private key is required");
+      return;
+    }
+
+    if (address === recipient) {
+      alert("Sender and recipient cannot be the same");
+      return;
+    }
+
+    const message = { amount: parseInt(sendAmount), recipient };
+    const signature = await cryptoUtil.signMessage(privateKey, message);
+
     try {
       const {
         data: { balance },
       } = await server.post(`send`, {
-        sender: address,
-        amount: parseInt(sendAmount),
-        recipient,
+        signature: { hex: signature.toDERHex(), recovery: signature.recovery },
+        message,
       });
       setBalance(balance);
     } catch (ex) {
